@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+
+{% block title %}Страница не найдена | RoomFlow{% endblock %}
+
+{% block content %}
+  <div class="content-card text-center">
+    <h1 class="display-6">404</h1>
+    <p class="text-secondary">Похоже, такой страницы больше нет или адрес указан неверно.</p>
+    <a href="{% url 'home' %}" class="btn btn-warning">Вернуться на главную</a>
+  </div>
+{% endblock %}
+

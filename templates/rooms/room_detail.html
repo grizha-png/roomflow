@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+
+{% block title %}{{ room.name }} | RoomFlow{% endblock %}
+
+{% block content %}
+  <div class="row g-4">
+    <div class="col-lg-8">
+      <div class="content-card mb-4">
+        <span class="eyebrow">Переговорная</span>
+        <div class="d-flex justify-content-between align-items-start gap-3">
+          <div>
+            <h1 class="h2 mb-2">{{ room.name }}</h1>
+            <p class="text-secondary">{{ room.location }}, этаж {{ room.floor }}</p>
+          </div>
+          <span class="badge text-bg-light">{{ room.capacity }} мест</span>
+        </div>
+        <p class="text-secondary mt-3 mb-4">{{ room.description }}</p>
+        <div class="mb-3">
+          {% for item in room.equipment.all %}
+            <span class="badge rounded-pill badge-soft">{{ item.name }}</span>
+          {% empty %}
+            <span class="text-secondary">Оснащение не указано</span>
+          {% endfor %}
+        </div>
+        <span class="badge {% if room.requires_moderation %}status-pending{% else %}status-confirmed{% endif %}">
+          {% if room.requires_moderation %}Ручное согласование{% else %}Автоматическое подтверждение{% endif %}
+        </span>
+      </div>
+
+      <div class="content-card">
+        <div class="d-flex justify-content-between align-items-end mb-3">
+          <div>
+            <span class="eyebrow">Активные слоты</span>
+            <h2 class="h4 mb-0">Ближайшие бронирования</h2>
+          </div>
+        </div>
+        <div class="table-responsive">
+          <table class="table align-middle mb-0">
+            <thead>
+              <tr>
+                <th>Тема</th>
+                <th>Начало</th>
+                <th>Окончание</th>
+                <th>Статус</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for booking in upcoming_bookings %}
+                <tr>
+                  <td>{{ booking.title }}</td>
+                  <td>{{ booking.start_at|date:"d.m.Y H:i" }}</td>
+                  <td>{{ booking.end_at|date:"d.m.Y H:i" }}</td>
+                  <td><span class="badge status-{{ booking.status }}">{{ booking.get_status_display }}</span></td>
+                </tr>
+              {% empty %}
+                <tr>
+                  <td colspan="4" class="text-secondary">Активных бронирований пока нет.</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-4">
+      <aside class="content-card cta-sidebar">
+        <span class="eyebrow">Действия</span>
+        <h2 class="h4 mb-3">Быстрый доступ</h2>
+        <div class="detail-list">
+          <div class="detail-item">
+            <div class="fw-semibold">Режим подтверждения</div>
+            <div class="text-secondary">{% if room.requires_moderation %}Ручное согласование{% else %}Мгновенное подтверждение{% endif %}</div>
+          </div>
+          <div class="detail-item">
+            <div class="fw-semibold">Вместимость</div>
+            <div class="text-secondary">{{ room.capacity }} участников</div>
+          </div>
+          <div class="detail-item">
+            <div class="fw-semibold">Доступность</div>
+            <div class="text-secondary">{% if room.is_active %}Доступна{% else %}Недоступна{% endif %}</div>
+          </div>
+        </div>
+        <div class="d-grid gap-2 mt-4">
+          {% if request.user.is_authenticated %}
+            <a href="{% url 'bookings:create' room.slug %}" class="btn btn-warning">Создать бронирование</a>
+          {% else %}
+            <a href="{% url 'login' %}" class="btn btn-warning">Войти для бронирования</a>
+          {% endif %}
+          <a href="{% url 'rooms:list' %}" class="btn btn-outline-dark">Назад к каталогу</a>
+        </div>
+      </aside>
+    </div>
+  </div>
+{% endblock %}
+

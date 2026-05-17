@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% load core_tags %}
+
+{% block title %}{{ booking.title }} | RoomFlow{% endblock %}
+
+{% block content %}
+  <div class="row g-4">
+    <div class="col-lg-8">
+      <div class="content-card">
+        <span class="eyebrow">Заявка</span>
+        <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+          <div>
+            <h1 class="h3 mb-1">{{ booking.title }}</h1>
+            <p class="text-secondary mb-0">{{ booking.room.name }}</p>
+          </div>
+          <span class="badge {{ booking.status_badge_class }}">{{ booking.get_status_display }}</span>
+        </div>
+        <div class="detail-list">
+          <div class="detail-item">
+            <div class="fw-semibold">Организатор</div>
+            <div class="text-secondary">{{ booking.organizer.get_full_name|default:booking.organizer.username }}</div>
+          </div>
+          <div class="detail-item">
+            <div class="fw-semibold">Интервал</div>
+            <div class="text-secondary">{{ booking.start_at|date:"d.m.Y H:i" }} — {{ booking.end_at|date:"d.m.Y H:i" }}</div>
+          </div>
+          <div class="detail-item">
+            <div class="fw-semibold">Участники</div>
+            <div class="text-secondary">{{ booking.participants_count }}</div>
+          </div>
+          <div class="detail-item">
+            <div class="fw-semibold">Описание</div>
+            <div class="text-secondary">{{ booking.description|default:"Без дополнительного описания" }}</div>
+          </div>
+          {% if booking.moderation_comment %}
+            <div class="detail-item">
+              <div class="fw-semibold">Комментарий модератора</div>
+              <div class="text-secondary">{{ booking.moderation_comment }}</div>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-4">
+      <div class="content-card cta-sidebar">
+        <span class="eyebrow">Действия</span>
+        <div class="d-grid gap-2">
+          {% if booking|can_edit_booking:request.user %}
+            <a href="{% url 'bookings:edit' booking.pk %}" class="btn btn-dark">Редактировать</a>
+          {% endif %}
+          {% if booking|can_cancel_booking:request.user %}
+            <form method="post" action="{% url 'bookings:cancel' booking.pk %}">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-outline-danger w-100">Отменить бронирование</button>
+            </form>
+          {% endif %}
+          <a href="{% url 'bookings:my_list' %}" class="btn btn-outline-dark">К списку заявок</a>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}

@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}Профиль | RoomFlow{% endblock %}
+
+{% block content %}
+  <div class="row g-4">
+    <div class="col-lg-4">
+      <div class="content-card h-100">
+        <span class="eyebrow">Профиль</span>
+        <h1 class="h3 mb-1">{{ request.user.get_full_name|default:request.user.username }}</h1>
+        <p class="text-secondary">{{ request.user.email|default:"Email не указан" }}</p>
+        <div class="metric-tile mt-4">
+          <span class="metric-label">Всего бронирований</span>
+          <strong>{{ bookings_count }}</strong>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-8">
+      <div class="content-card h-100">
+        <span class="eyebrow">Доступ</span>
+        <h2 class="h4 mb-3">Роли и возможности</h2>
+        <ul class="feature-list">
+          <li>Сотрудник: просмотр комнат, создание и управление своими бронированиями.</li>
+          {% if moderation_enabled %}
+            <li>Модератор: доступ к очереди согласования заявок.</li>
+          {% endif %}
+          {% if request.user.is_staff %}
+            <li>Администратор: доступ к административной панели и настройке справочников.</li>
+          {% endif %}
+        </ul>
+        <div class="d-flex flex-wrap gap-2 mt-4">
+          <a href="{% url 'bookings:my_list' %}" class="btn btn-dark">Мои бронирования</a>
+          <a href="{% url 'rooms:list' %}" class="btn btn-outline-dark">Каталог комнат</a>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}
+

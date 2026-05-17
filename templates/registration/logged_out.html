@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block title %}Выход | RoomFlow{% endblock %}
+
+{% block content %}
+  <div class="row justify-content-center">
+    <div class="col-lg-5">
+      <div class="content-card text-center">
+        <span class="eyebrow">Сессия завершена</span>
+        <h1 class="h3 mb-3">Вы вышли из системы</h1>
+        <p class="text-secondary mb-4">Возвращайтесь, когда понадобится быстро найти свободную переговорную.</p>
+        <a href="{% url 'login' %}" class="btn btn-warning">Войти снова</a>
+      </div>
+    </div>
+  </div>
+{% endblock %}
+

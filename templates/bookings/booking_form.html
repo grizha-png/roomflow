@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block title %}{{ page_title }} | RoomFlow{% endblock %}
+
+{% block content %}
+  <div class="row g-4">
+    <div class="col-lg-8">
+      <div class="content-card">
+        <span class="eyebrow">Бронирование</span>
+        <h1 class="h3 mb-4">{{ page_title }}</h1>
+        <form method="post" class="row g-3">
+          {% csrf_token %}
+          {% if form.non_field_errors %}
+            <div class="col-12">
+              <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+            </div>
+          {% endif %}
+          {% for field in form %}
+            <div class="{% if field.name == 'description' %}col-12{% else %}col-md-6{% endif %}">
+              <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
+              {{ field }}
+              {% if field.help_text %}
+                <div class="form-text">{{ field.help_text }}</div>
+              {% endif %}
+              {% if field.errors %}
+                <div class="text-danger small mt-1">{{ field.errors|join:", " }}</div>
+              {% endif %}
+            </div>
+          {% endfor %}
+          <div class="col-12 d-flex gap-2">
+            <button type="submit" class="btn btn-warning">{{ submit_label }}</button>
+            <a href="{{ room.get_absolute_url }}" class="btn btn-outline-dark">Отмена</a>
+          </div>
+        </form>
+      </div>
+    </div>
+    <div class="col-lg-4">
+      <div class="content-card cta-sidebar">
+        <span class="eyebrow">Переговорная</span>
+        <h2 class="h4 mb-2">{{ room.name }}</h2>
+        <p class="text-secondary mb-3">{{ room.location }}, этаж {{ room.floor }}</p>
+        <div class="detail-list">
+          <div class="detail-item">
+            <div class="fw-semibold">Вместимость</div>
+            <div class="text-secondary">{{ room.capacity }} мест</div>
+          </div>
+          <div class="detail-item">
+            <div class="fw-semibold">Режим подтверждения</div>
+            <div class="text-secondary">{% if room.requires_moderation %}Ручное согласование{% else %}Мгновенное подтверждение{% endif %}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}
+

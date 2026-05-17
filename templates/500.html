@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+
+{% block title %}Ошибка сервера | RoomFlow{% endblock %}
+
+{% block content %}
+  <div class="content-card text-center">
+    <h1 class="display-6">500</h1>
+    <p class="text-secondary">Внутренняя ошибка сервера. Попробуйте повторить действие немного позже.</p>
+    <a href="{% url 'home' %}" class="btn btn-warning">На главную</a>
+  </div>
+{% endblock %}
+

@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block title %}Согласование | RoomFlow{% endblock %}
+
+{% block content %}
+  <div class="content-card">
+    <div class="d-flex justify-content-between align-items-end mb-4">
+      <div>
+        <span class="eyebrow">Модерация</span>
+        <h1 class="h3 mb-0">Очередь заявок на согласование</h1>
+      </div>
+      <span class="badge status-pending px-3 py-2">{{ bookings|length }} в очереди</span>
+    </div>
+    <div class="table-responsive">
+      <table class="table align-middle mb-0">
+        <thead>
+          <tr>
+            <th>Тема</th>
+            <th>Комната</th>
+            <th>Организатор</th>
+            <th>Интервал</th>
+            <th>Комментарий</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for booking in bookings %}
+            <tr>
+              <td><a href="{% url 'bookings:detail' booking.pk %}" class="table-link">{{ booking.title }}</a></td>
+              <td>{{ booking.room.name }}</td>
+              <td>{{ booking.organizer.username }}</td>
+              <td>{{ booking.start_at|date:"d.m.Y H:i" }} — {{ booking.end_at|date:"d.m.Y H:i" }}</td>
+              <td>
+                <form method="post" action="{% url 'dashboard:moderate_booking' booking.pk 'approve' %}" class="d-grid gap-2">
+                  {% csrf_token %}
+                  <textarea name="comment" class="form-control" rows="2" placeholder="Комментарий модератора"></textarea>
+                  <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-sm btn-warning">Подтвердить</button>
+                    <button type="submit" formaction="{% url 'dashboard:moderate_booking' booking.pk 'reject' %}" class="btn btn-sm btn-outline-danger">Отклонить</button>
+                  </div>
+                </form>
+              </td>
+              <td></td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="6" class="text-secondary">В очереди нет заявок.</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+{% endblock %}
