@@ -35,11 +35,14 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "django.contrib.postgres",
+    "rest_framework",
+    "drf_spectacular",
     "core",
     "users",
     "rooms",
     "bookings",
     "dashboard",
+    "api",
 ]
 
 MIDDLEWARE = [
@@ -109,3 +112,19 @@ LOGOUT_REDIRECT_URL = "home"
 
 MESSAGE_STORAGE = "django.contrib.messages.storage.session.SessionStorage"
 
+REST_FRAMEWORK = {
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework.authentication.SessionAuthentication",
+    ],
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.AllowAny",
+    ],
+}
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "RoomFlow API",
+    "DESCRIPTION": "REST API для управления переговорными комнатами и бронированиями.",
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+}

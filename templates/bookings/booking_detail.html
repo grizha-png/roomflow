@@ -4,59 +4,100 @@
 {% block title %}{{ booking.title }} | RoomFlow{% endblock %}
 
 {% block content %}
-  <div class="row g-4">
+  <div class="row g-4" id="booking-detail-page" data-booking-id="{{ booking.pk }}">
     <div class="col-lg-8">
-      <div class="content-card">
-        <span class="eyebrow">Заявка</span>
-        <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
-          <div>
-            <h1 class="h3 mb-1">{{ booking.title }}</h1>
-            <p class="text-secondary mb-0">{{ booking.room.name }}</p>
-          </div>
-          <span class="badge {{ booking.status_badge_class }}">{{ booking.get_status_display }}</span>
-        </div>
-        <div class="detail-list">
-          <div class="detail-item">
-            <div class="fw-semibold">Организатор</div>
-            <div class="text-secondary">{{ booking.organizer.get_full_name|default:booking.organizer.username }}</div>
-          </div>
-          <div class="detail-item">
-            <div class="fw-semibold">Интервал</div>
-            <div class="text-secondary">{{ booking.start_at|date:"d.m.Y H:i" }} — {{ booking.end_at|date:"d.m.Y H:i" }}</div>
-          </div>
-          <div class="detail-item">
-            <div class="fw-semibold">Участники</div>
-            <div class="text-secondary">{{ booking.participants_count }}</div>
-          </div>
-          <div class="detail-item">
-            <div class="fw-semibold">Описание</div>
-            <div class="text-secondary">{{ booking.description|default:"Без дополнительного описания" }}</div>
-          </div>
-          {% if booking.moderation_comment %}
-            <div class="detail-item">
-              <div class="fw-semibold">Комментарий модератора</div>
-              <div class="text-secondary">{{ booking.moderation_comment }}</div>
-            </div>
-          {% endif %}
-        </div>
+      <div id="booking-detail-alert"></div>
+      <div class="content-card" id="booking-detail-card">
+        <div class="text-secondary">Загрузка данных бронирования...</div>
       </div>
     </div>
     <div class="col-lg-4">
-      <div class="content-card cta-sidebar">
-        <span class="eyebrow">Действия</span>
-        <div class="d-grid gap-2">
-          {% if booking|can_edit_booking:request.user %}
-            <a href="{% url 'bookings:edit' booking.pk %}" class="btn btn-dark">Редактировать</a>
-          {% endif %}
-          {% if booking|can_cancel_booking:request.user %}
-            <form method="post" action="{% url 'bookings:cancel' booking.pk %}">
-              {% csrf_token %}
-              <button type="submit" class="btn btn-outline-danger w-100">Отменить бронирование</button>
-            </form>
-          {% endif %}
-          <a href="{% url 'bookings:my_list' %}" class="btn btn-outline-dark">К списку заявок</a>
-        </div>
+      <div class="content-card cta-sidebar" id="booking-actions-card">
+        <div class="text-secondary">Подготовка действий...</div>
       </div>
     </div>
   </div>
+{% endblock %}
+
+{% block extra_scripts %}
+  <script>
+    (() => {
+      const page = document.getElementById("booking-detail-page");
+      const bookingId = page.dataset.bookingId;
+      const detailCard = document.getElementById("booking-detail-card");
+      const actionsCard = document.getElementById("booking-actions-card");
+      const alertBox = document.getElementById("booking-detail-alert");
+      const { request, escapeHtml, formatDateTime, clearAlert, showAlert } = window.RoomFlowApi;
+
+      function renderBooking(booking) {
+        document.title = `${booking.title} | RoomFlow`;
+        detailCard.innerHTML = `
+          <span class="eyebrow">Заявка</span>
+          <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+            <div>
+              <h1 class="h3 mb-1">${escapeHtml(booking.title)}</h1>
+              <p class="text-secondary mb-0">${escapeHtml(booking.room.name)}</p>
+            </div>
+            <span class="badge ${escapeHtml(booking.status_badge_class)}">${escapeHtml(booking.status_display)}</span>
+          </div>
+          <div class="detail-list">
+            <div class="detail-item">
+              <div class="fw-semibold">Организатор</div>
+              <div class="text-secondary">${escapeHtml(booking.organizer.full_name || booking.organizer.username)}</div>
+            </div>
+            <div class="detail-item">
+              <div class="fw-semibold">Интервал</div>
+              <div class="text-secondary">${formatDateTime(booking.start_at)} — ${formatDateTime(booking.end_at)}</div>
+            </div>
+            <div class="detail-item">
+              <div class="fw-semibold">Участники</div>
+              <div class="text-secondary">${booking.participants_count}</div>
+            </div>
+            <div class="detail-item">
+              <div class="fw-semibold">Описание</div>
+              <div class="text-secondary">${escapeHtml(booking.description || "Без дополнительного описания")}</div>
+            </div>
+            ${booking.moderation_comment ? `
+              <div class="detail-item">
+                <div class="fw-semibold">Комментарий модератора</div>
+                <div class="text-secondary">${escapeHtml(booking.moderation_comment)}</div>
+              </div>` : ""}
+          </div>
+        `;
+
+        actionsCard.innerHTML = `
+          <span class="eyebrow">Действия</span>
+          <div class="d-grid gap-2">
+            ${booking.can_edit ? `<a href="/bookings/${booking.id}/edit/" class="btn btn-dark">Редактировать</a>` : ""}
+            ${booking.can_cancel ? `<button type="button" class="btn btn-outline-danger w-100" id="cancel-booking-button">Отменить бронирование</button>` : ""}
+            <a href="/bookings/my/" class="btn btn-outline-dark">К списку заявок</a>
+          </div>
+        `;
+
+        const cancelButton = document.getElementById("cancel-booking-button");
+        if (cancelButton) {
+          cancelButton.addEventListener("click", async () => {
+            try {
+              const updated = await request(`/api/bookings/${booking.id}/cancel/`, { method: "POST" });
+              clearAlert(alertBox);
+              renderBooking(updated);
+            } catch (error) {
+              showAlert(alertBox, "danger", error.message);
+            }
+          });
+        }
+      }
+
+      request(`/api/bookings/${bookingId}/`)
+        .then((booking) => {
+          clearAlert(alertBox);
+          renderBooking(booking);
+        })
+        .catch((error) => {
+          showAlert(alertBox, "danger", error.message);
+          detailCard.innerHTML = '<div class="text-secondary">Не удалось загрузить данные бронирования.</div>';
+          actionsCard.innerHTML = '<div class="text-secondary">Действия временно недоступны.</div>';
+        });
+    })();
+  </script>
 {% endblock %}

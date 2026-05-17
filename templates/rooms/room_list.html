@@ -8,7 +8,8 @@
       <aside class="content-card cta-sidebar">
         <span class="eyebrow">Фильтры</span>
         <h1 class="h4 mb-3">Подберите переговорную</h1>
-        <form method="get" class="filter-grid">
+        <div id="rooms-api-alert"></div>
+        <form method="get" class="filter-grid" id="room-filter-form">
           {% for field in filter_form %}
             <div>
               <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
@@ -26,47 +27,87 @@
           <span class="eyebrow">Каталог</span>
           <h1 class="h2 mb-0">Доступные переговорные</h1>
         </div>
-        <span class="text-secondary">{{ rooms|length }} в текущей выборке</span>
+        <span class="text-secondary" id="rooms-count">{{ rooms|length }} в текущей выборке</span>
       </div>
-      <div class="row g-4">
-        {% for room in rooms %}
-          <div class="col-lg-6">
-            <article class="content-card h-100">
-              <div class="d-flex justify-content-between align-items-start mb-3">
-                <div>
-                  <h2 class="h4 mb-1">{{ room.name }}</h2>
-                  <p class="text-secondary mb-0">{{ room.location }}, этаж {{ room.floor }}</p>
-                </div>
-                <span class="badge text-bg-light">{{ room.capacity }} мест</span>
-              </div>
-              <p class="text-secondary">{{ room.description|truncatechars:140 }}</p>
-              <div class="mb-3">
-                <span class="badge {% if room.requires_moderation %}status-pending{% else %}status-confirmed{% endif %}">
-                  {% if room.requires_moderation %}Ручное согласование{% else %}Автоподтверждение{% endif %}
-                </span>
-              </div>
-              <div class="mb-4">
-                {% for item in room.equipment.all %}
-                  <span class="badge rounded-pill badge-soft">{{ item.name }}</span>
-                {% empty %}
-                  <span class="text-secondary">Оснащение не указано</span>
-                {% endfor %}
-              </div>
-              <div class="d-flex gap-2">
-                <a href="{{ room.get_absolute_url }}" class="btn btn-dark flex-grow-1">Подробнее</a>
-                {% if request.user.is_authenticated %}
-                  <a href="{% url 'bookings:create' room.slug %}" class="btn btn-warning">Бронировать</a>
-                {% endif %}
-              </div>
-            </article>
-          </div>
-        {% empty %}
-          <div class="col-12">
-            <div class="content-card">По текущим фильтрам переговорные не найдены.</div>
-          </div>
-        {% endfor %}
-      </div>
+      <div class="row g-4" id="rooms-grid"></div>
     </div>
   </div>
 {% endblock %}
 
+{% block extra_scripts %}
+  <script>
+    (() => {
+      const form = document.getElementById("room-filter-form");
+      const grid = document.getElementById("rooms-grid");
+      const alertBox = document.getElementById("rooms-api-alert");
+      const count = document.getElementById("rooms-count");
+      const isAuthenticated = document.body.dataset.authenticated === "true";
+      const { request, escapeHtml, clearAlert, showAlert } = window.RoomFlowApi;
+
+      function renderCard(room) {
+        const equipmentHtml = room.equipment.length
+          ? room.equipment.map((item) => `<span class="badge rounded-pill badge-soft">${escapeHtml(item.name)}</span>`).join(" ")
+          : '<span class="text-secondary">Оснащение не указано</span>';
+        const statusClass = room.requires_moderation ? "status-pending" : "status-confirmed";
+        const statusText = room.requires_moderation ? "Ручное согласование" : "Автоподтверждение";
+        const bookingButton = isAuthenticated
+          ? `<a href="/bookings/create/${encodeURIComponent(room.slug)}/" class="btn btn-warning">Бронировать</a>`
+          : "";
+
+        return `
+          <div class="col-lg-6">
+            <article class="content-card h-100">
+              <div class="d-flex justify-content-between align-items-start mb-3">
+                <div>
+                  <h2 class="h4 mb-1">${escapeHtml(room.name)}</h2>
+                  <p class="text-secondary mb-0">${escapeHtml(room.location)}, этаж ${room.floor}</p>
+                </div>
+                <span class="badge text-bg-light">${room.capacity} мест</span>
+              </div>
+              <p class="text-secondary">${escapeHtml(room.description || "")}</p>
+              <div class="mb-3">
+                <span class="badge ${statusClass}">${statusText}</span>
+              </div>
+              <div class="mb-4">${equipmentHtml}</div>
+              <div class="d-flex gap-2">
+                <a href="/rooms/${encodeURIComponent(room.slug)}/" class="btn btn-dark flex-grow-1">Подробнее</a>
+                ${bookingButton}
+              </div>
+            </article>
+          </div>
+        `;
+      }
+
+      async function loadRooms() {
+        clearAlert(alertBox);
+        grid.innerHTML = '<div class="col-12"><div class="content-card">Загрузка списка переговорных...</div></div>';
+        const params = new URLSearchParams(new FormData(form));
+        const rooms = await request(`/api/rooms/?${params.toString()}`);
+        count.textContent = `${rooms.length} в текущей выборке`;
+        if (!rooms.length) {
+          grid.innerHTML = '<div class="col-12"><div class="content-card">По текущим фильтрам переговорные не найдены.</div></div>';
+          return;
+        }
+        grid.innerHTML = rooms.map(renderCard).join("");
+      }
+
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        try {
+          await loadRooms();
+        } catch (error) {
+          grid.innerHTML = "";
+          showAlert(alertBox, "danger", error.message);
+        }
+      });
+
+      form.addEventListener("reset", () => {
+        window.setTimeout(() => {
+          loadRooms().catch((error) => showAlert(alertBox, "danger", error.message));
+        }, 0);
+      });
+
+      loadRooms().catch((error) => showAlert(alertBox, "danger", error.message));
+    })();
+  </script>
+{% endblock %}

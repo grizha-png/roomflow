@@ -20,10 +20,11 @@ class RoomViewsTests(TestCase):
     def test_room_list_displays_room(self):
         response = self.client.get(reverse("rooms:list"))
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Axiom")
+        self.assertContains(response, 'id="rooms-grid"')
+        self.assertContains(response, "/api/rooms/")
 
     def test_room_detail_displays_equipment(self):
         response = self.client.get(reverse("rooms:detail", args=[self.room.slug]))
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Проектор")
-
+        self.assertContains(response, f'data-room-slug="{self.room.slug}"')
+        self.assertContains(response, "/api/rooms/")

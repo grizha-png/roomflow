@@ -3,6 +3,7 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.contrib.auth import views as auth_views
 from django.urls import include, path
+from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
 from users.forms import StyledAuthenticationForm
 
@@ -10,6 +11,9 @@ from users.forms import StyledAuthenticationForm
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("", include("core.urls")),
+    path("api/", include("api.urls")),
+    path("api/schema/", SpectacularAPIView.as_view(), name="api-schema"),
+    path("api/schema/swagger-ui/", SpectacularSwaggerView.as_view(url_name="api-schema"), name="api-swagger-ui"),
     path("rooms/", include("rooms.urls")),
     path("bookings/", include("bookings.urls")),
     path("moderation/", include("dashboard.urls")),

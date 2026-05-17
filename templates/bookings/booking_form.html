@@ -3,12 +3,18 @@
 {% block title %}{{ page_title }} | RoomFlow{% endblock %}
 
 {% block content %}
-  <div class="row g-4">
+  <div
+    class="row g-4"
+    id="booking-form-page"
+    data-room-slug="{{ room.slug }}"
+    {% if booking %}data-booking-id="{{ booking.pk }}"{% endif %}
+  >
     <div class="col-lg-8">
       <div class="content-card">
         <span class="eyebrow">Бронирование</span>
         <h1 class="h3 mb-4">{{ page_title }}</h1>
-        <form method="post" class="row g-3">
+        <div id="booking-form-alert"></div>
+        <form method="post" class="row g-3" id="booking-api-form">
           {% csrf_token %}
           {% if form.non_field_errors %}
             <div class="col-12">
@@ -35,22 +41,88 @@
       </div>
     </div>
     <div class="col-lg-4">
-      <div class="content-card cta-sidebar">
-        <span class="eyebrow">Переговорная</span>
-        <h2 class="h4 mb-2">{{ room.name }}</h2>
-        <p class="text-secondary mb-3">{{ room.location }}, этаж {{ room.floor }}</p>
-        <div class="detail-list">
-          <div class="detail-item">
-            <div class="fw-semibold">Вместимость</div>
-            <div class="text-secondary">{{ room.capacity }} мест</div>
-          </div>
-          <div class="detail-item">
-            <div class="fw-semibold">Режим подтверждения</div>
-            <div class="text-secondary">{% if room.requires_moderation %}Ручное согласование{% else %}Мгновенное подтверждение{% endif %}</div>
-          </div>
-        </div>
+      <div class="content-card cta-sidebar" id="booking-room-card">
+        <div class="text-secondary">Загрузка сведений о переговорной...</div>
       </div>
     </div>
   </div>
 {% endblock %}
 
+{% block extra_scripts %}
+  <script>
+    (() => {
+      const page = document.getElementById("booking-form-page");
+      const form = document.getElementById("booking-api-form");
+      const roomSlug = page.dataset.roomSlug;
+      const bookingId = page.dataset.bookingId || null;
+      const alertBox = document.getElementById("booking-form-alert");
+      const roomCard = document.getElementById("booking-room-card");
+      const { request, escapeHtml, showAlert, clearAlert, toApiDateTime } = window.RoomFlowApi;
+
+      function renderRoom(room) {
+        roomCard.innerHTML = `
+          <span class="eyebrow">Переговорная</span>
+          <h2 class="h4 mb-2">${escapeHtml(room.name)}</h2>
+          <p class="text-secondary mb-3">${escapeHtml(room.location)}, этаж ${room.floor}</p>
+          <div class="detail-list">
+            <div class="detail-item">
+              <div class="fw-semibold">Вместимость</div>
+              <div class="text-secondary">${room.capacity} мест</div>
+            </div>
+            <div class="detail-item">
+              <div class="fw-semibold">Режим подтверждения</div>
+              <div class="text-secondary">${room.requires_moderation ? "Ручное согласование" : "Мгновенное подтверждение"}</div>
+            </div>
+          </div>
+        `;
+      }
+
+      function fillForm(booking) {
+        form.elements.title.value = booking.title || "";
+        form.elements.description.value = booking.description || "";
+        form.elements.participants_count.value = booking.participants_count || "";
+        form.elements.start_at.value = booking.start_at ? booking.start_at.slice(0, 16) : "";
+        form.elements.end_at.value = booking.end_at ? booking.end_at.slice(0, 16) : "";
+      }
+
+      async function loadInitialData() {
+        const room = await request(`/api/rooms/${encodeURIComponent(roomSlug)}/`);
+        renderRoom(room);
+        if (bookingId) {
+          const booking = await request(`/api/bookings/${bookingId}/`);
+          fillForm(booking);
+        }
+      }
+
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        clearAlert(alertBox);
+        const payload = {
+          title: form.elements.title.value,
+          description: form.elements.description.value,
+          participants_count: Number(form.elements.participants_count.value),
+          start_at: toApiDateTime(form.elements.start_at.value),
+          end_at: toApiDateTime(form.elements.end_at.value),
+        };
+        if (!bookingId) {
+          payload.room_slug = roomSlug;
+        }
+
+        try {
+          const booking = await request(bookingId ? `/api/bookings/${bookingId}/` : "/api/bookings/", {
+            method: bookingId ? "PATCH" : "POST",
+            body: JSON.stringify(payload),
+          });
+          window.location.href = `/bookings/${booking.id}/`;
+        } catch (error) {
+          showAlert(alertBox, "danger", error.message);
+        }
+      });
+
+      loadInitialData().catch((error) => {
+        showAlert(alertBox, "danger", error.message);
+        roomCard.innerHTML = '<div class="text-secondary">Не удалось загрузить сведения о переговорной.</div>';
+      });
+    })();
+  </script>
+{% endblock %}

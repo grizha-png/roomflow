@@ -9,8 +9,9 @@
         <span class="eyebrow">Модерация</span>
         <h1 class="h3 mb-0">Очередь заявок на согласование</h1>
       </div>
-      <span class="badge status-pending px-3 py-2">{{ bookings|length }} в очереди</span>
+      <span class="badge status-pending px-3 py-2" id="moderation-count">{{ bookings|length }} в очереди</span>
     </div>
+    <div id="moderation-alert"></div>
     <div class="table-responsive">
       <table class="table align-middle mb-0">
         <thead>
@@ -23,32 +24,77 @@
             <th></th>
           </tr>
         </thead>
-        <tbody>
-          {% for booking in bookings %}
-            <tr>
-              <td><a href="{% url 'bookings:detail' booking.pk %}" class="table-link">{{ booking.title }}</a></td>
-              <td>{{ booking.room.name }}</td>
-              <td>{{ booking.organizer.username }}</td>
-              <td>{{ booking.start_at|date:"d.m.Y H:i" }} — {{ booking.end_at|date:"d.m.Y H:i" }}</td>
-              <td>
-                <form method="post" action="{% url 'dashboard:moderate_booking' booking.pk 'approve' %}" class="d-grid gap-2">
-                  {% csrf_token %}
-                  <textarea name="comment" class="form-control" rows="2" placeholder="Комментарий модератора"></textarea>
-                  <div class="d-flex gap-2">
-                    <button type="submit" class="btn btn-sm btn-warning">Подтвердить</button>
-                    <button type="submit" formaction="{% url 'dashboard:moderate_booking' booking.pk 'reject' %}" class="btn btn-sm btn-outline-danger">Отклонить</button>
-                  </div>
-                </form>
-              </td>
-              <td></td>
-            </tr>
-          {% empty %}
-            <tr>
-              <td colspan="6" class="text-secondary">В очереди нет заявок.</td>
-            </tr>
-          {% endfor %}
-        </tbody>
+        <tbody id="moderation-body"></tbody>
       </table>
     </div>
   </div>
+{% endblock %}
+
+{% block extra_scripts %}
+  <script>
+    (() => {
+      const body = document.getElementById("moderation-body");
+      const count = document.getElementById("moderation-count");
+      const alertBox = document.getElementById("moderation-alert");
+      const { request, escapeHtml, formatDateTime, clearAlert, showAlert } = window.RoomFlowApi;
+
+      function renderRows(bookings) {
+        count.textContent = `${bookings.length} в очереди`;
+        if (!bookings.length) {
+          body.innerHTML = '<tr><td colspan="6" class="text-secondary">В очереди нет заявок.</td></tr>';
+          return;
+        }
+        body.innerHTML = bookings.map((booking) => `
+          <tr data-booking-id="${booking.id}">
+            <td><a href="/bookings/${booking.id}/" class="table-link">${escapeHtml(booking.title)}</a></td>
+            <td>${escapeHtml(booking.room.name)}</td>
+            <td>${escapeHtml(booking.organizer.full_name || booking.organizer.username)}</td>
+            <td>${formatDateTime(booking.start_at)} — ${formatDateTime(booking.end_at)}</td>
+            <td>
+              <form class="d-grid gap-2 moderation-form">
+                <textarea name="comment" class="form-control" rows="2" placeholder="Комментарий модератора"></textarea>
+                <div class="d-flex gap-2">
+                  <button type="submit" data-decision="approve" class="btn btn-sm btn-warning">Подтвердить</button>
+                  <button type="button" data-decision="reject" class="btn btn-sm btn-outline-danger">Отклонить</button>
+                </div>
+              </form>
+            </td>
+            <td></td>
+          </tr>
+        `).join("");
+
+        body.querySelectorAll(".moderation-form").forEach((form) => {
+          const row = form.closest("tr");
+          const bookingId = row.dataset.bookingId;
+          const buttons = form.querySelectorAll("[data-decision]");
+          buttons.forEach((button) => {
+            button.addEventListener("click", async (event) => {
+              event.preventDefault();
+              const decision = button.dataset.decision;
+              try {
+                await request(`/api/bookings/${bookingId}/${decision}/`, {
+                  method: "POST",
+                  body: JSON.stringify({ comment: form.elements.comment.value }),
+                });
+                await loadQueue();
+              } catch (error) {
+                showAlert(alertBox, "danger", error.message);
+              }
+            });
+          });
+        });
+      }
+
+      async function loadQueue() {
+        clearAlert(alertBox);
+        const bookings = await request("/api/bookings/pending/");
+        renderRows(bookings);
+      }
+
+      loadQueue().catch((error) => {
+        body.innerHTML = "";
+        showAlert(alertBox, "danger", error.message);
+      });
+    })();
+  </script>
 {% endblock %}

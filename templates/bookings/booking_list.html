@@ -12,6 +12,7 @@
       </div>
       <a href="{% url 'rooms:list' %}" class="btn btn-outline-dark">Найти комнату</a>
     </div>
+    <div id="booking-list-alert"></div>
     <div class="table-responsive">
       <table class="table align-middle mb-0">
         <thead>
@@ -24,27 +25,47 @@
             <th></th>
           </tr>
         </thead>
-        <tbody>
-          {% for booking in bookings %}
-            <tr>
-              <td><a href="{% url 'bookings:detail' booking.pk %}" class="table-link">{{ booking.title }}</a></td>
-              <td>{{ booking.room.name }}</td>
-              <td>{{ booking.start_at|date:"d.m.Y H:i" }}</td>
-              <td>{{ booking.end_at|date:"d.m.Y H:i" }}</td>
-              <td><span class="badge status-{{ booking.status }}">{{ booking.get_status_display }}</span></td>
-              <td class="text-end">
-                {% if booking|can_edit_booking:request.user %}
-                  <a href="{% url 'bookings:edit' booking.pk %}" class="btn btn-sm btn-outline-dark">Изменить</a>
-                {% endif %}
-              </td>
-            </tr>
-          {% empty %}
-            <tr>
-              <td colspan="6" class="text-secondary">У вас пока нет бронирований.</td>
-            </tr>
-          {% endfor %}
-        </tbody>
+        <tbody id="booking-list-body"></tbody>
       </table>
     </div>
   </div>
+{% endblock %}
+
+{% block extra_scripts %}
+  <script>
+    (() => {
+      const body = document.getElementById("booking-list-body");
+      const alertBox = document.getElementById("booking-list-alert");
+      const { request, escapeHtml, formatDateTime, clearAlert, showAlert } = window.RoomFlowApi;
+
+      function renderRows(bookings) {
+        if (!bookings.length) {
+          body.innerHTML = '<tr><td colspan="6" class="text-secondary">У вас пока нет бронирований.</td></tr>';
+          return;
+        }
+        body.innerHTML = bookings.map((booking) => `
+          <tr>
+            <td><a href="/bookings/${booking.id}/" class="table-link">${escapeHtml(booking.title)}</a></td>
+            <td>${escapeHtml(booking.room.name)}</td>
+            <td>${formatDateTime(booking.start_at)}</td>
+            <td>${formatDateTime(booking.end_at)}</td>
+            <td><span class="badge ${escapeHtml(booking.status_badge_class)}">${escapeHtml(booking.status_display)}</span></td>
+            <td class="text-end">
+              ${booking.can_edit ? `<a href="/bookings/${booking.id}/edit/" class="btn btn-sm btn-outline-dark">Изменить</a>` : ""}
+            </td>
+          </tr>
+        `).join("");
+      }
+
+      request("/api/bookings/")
+        .then((bookings) => {
+          clearAlert(alertBox);
+          renderRows(bookings);
+        })
+        .catch((error) => {
+          body.innerHTML = "";
+          showAlert(alertBox, "danger", error.message);
+        });
+    })();
+  </script>
 {% endblock %}

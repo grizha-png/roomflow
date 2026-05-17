@@ -3,28 +3,11 @@
 {% block title %}{{ room.name }} | RoomFlow{% endblock %}
 
 {% block content %}
-  <div class="row g-4">
+  <div class="row g-4" id="room-detail-page" data-room-slug="{{ room.slug }}">
     <div class="col-lg-8">
-      <div class="content-card mb-4">
-        <span class="eyebrow">Переговорная</span>
-        <div class="d-flex justify-content-between align-items-start gap-3">
-          <div>
-            <h1 class="h2 mb-2">{{ room.name }}</h1>
-            <p class="text-secondary">{{ room.location }}, этаж {{ room.floor }}</p>
-          </div>
-          <span class="badge text-bg-light">{{ room.capacity }} мест</span>
-        </div>
-        <p class="text-secondary mt-3 mb-4">{{ room.description }}</p>
-        <div class="mb-3">
-          {% for item in room.equipment.all %}
-            <span class="badge rounded-pill badge-soft">{{ item.name }}</span>
-          {% empty %}
-            <span class="text-secondary">Оснащение не указано</span>
-          {% endfor %}
-        </div>
-        <span class="badge {% if room.requires_moderation %}status-pending{% else %}status-confirmed{% endif %}">
-          {% if room.requires_moderation %}Ручное согласование{% else %}Автоматическое подтверждение{% endif %}
-        </span>
+      <div id="room-detail-alert"></div>
+      <div class="content-card mb-4" id="room-summary-card">
+        <div class="text-secondary">Загрузка данных переговорной...</div>
       </div>
 
       <div class="content-card">
@@ -44,53 +27,107 @@
                 <th>Статус</th>
               </tr>
             </thead>
-            <tbody>
-              {% for booking in upcoming_bookings %}
-                <tr>
-                  <td>{{ booking.title }}</td>
-                  <td>{{ booking.start_at|date:"d.m.Y H:i" }}</td>
-                  <td>{{ booking.end_at|date:"d.m.Y H:i" }}</td>
-                  <td><span class="badge status-{{ booking.status }}">{{ booking.get_status_display }}</span></td>
-                </tr>
-              {% empty %}
-                <tr>
-                  <td colspan="4" class="text-secondary">Активных бронирований пока нет.</td>
-                </tr>
-              {% endfor %}
-            </tbody>
+            <tbody id="room-bookings-body"></tbody>
           </table>
         </div>
       </div>
     </div>
 
     <div class="col-lg-4">
-      <aside class="content-card cta-sidebar">
-        <span class="eyebrow">Действия</span>
-        <h2 class="h4 mb-3">Быстрый доступ</h2>
-        <div class="detail-list">
-          <div class="detail-item">
-            <div class="fw-semibold">Режим подтверждения</div>
-            <div class="text-secondary">{% if room.requires_moderation %}Ручное согласование{% else %}Мгновенное подтверждение{% endif %}</div>
-          </div>
-          <div class="detail-item">
-            <div class="fw-semibold">Вместимость</div>
-            <div class="text-secondary">{{ room.capacity }} участников</div>
-          </div>
-          <div class="detail-item">
-            <div class="fw-semibold">Доступность</div>
-            <div class="text-secondary">{% if room.is_active %}Доступна{% else %}Недоступна{% endif %}</div>
-          </div>
-        </div>
-        <div class="d-grid gap-2 mt-4">
-          {% if request.user.is_authenticated %}
-            <a href="{% url 'bookings:create' room.slug %}" class="btn btn-warning">Создать бронирование</a>
-          {% else %}
-            <a href="{% url 'login' %}" class="btn btn-warning">Войти для бронирования</a>
-          {% endif %}
-          <a href="{% url 'rooms:list' %}" class="btn btn-outline-dark">Назад к каталогу</a>
-        </div>
+      <aside class="content-card cta-sidebar" id="room-actions-card">
+        <div class="text-secondary">Подготовка действий...</div>
       </aside>
     </div>
   </div>
 {% endblock %}
 
+{% block extra_scripts %}
+  <script>
+    (() => {
+      const page = document.getElementById("room-detail-page");
+      const slug = page.dataset.roomSlug;
+      const summary = document.getElementById("room-summary-card");
+      const actions = document.getElementById("room-actions-card");
+      const bookingsBody = document.getElementById("room-bookings-body");
+      const alertBox = document.getElementById("room-detail-alert");
+      const isAuthenticated = document.body.dataset.authenticated === "true";
+      const { request, escapeHtml, formatDateTime, clearAlert, showAlert } = window.RoomFlowApi;
+
+      function renderSummary(room) {
+        const equipmentHtml = room.equipment.length
+          ? room.equipment.map((item) => `<span class="badge rounded-pill badge-soft">${escapeHtml(item.name)}</span>`).join(" ")
+          : '<span class="text-secondary">Оснащение не указано</span>';
+        const statusClass = room.requires_moderation ? "status-pending" : "status-confirmed";
+        const statusText = room.requires_moderation ? "Ручное согласование" : "Автоматическое подтверждение";
+        document.title = `${room.name} | RoomFlow`;
+        summary.innerHTML = `
+          <span class="eyebrow">Переговорная</span>
+          <div class="d-flex justify-content-between align-items-start gap-3">
+            <div>
+              <h1 class="h2 mb-2">${escapeHtml(room.name)}</h1>
+              <p class="text-secondary">${escapeHtml(room.location)}, этаж ${room.floor}</p>
+            </div>
+            <span class="badge text-bg-light">${room.capacity} мест</span>
+          </div>
+          <p class="text-secondary mt-3 mb-4">${escapeHtml(room.description || "")}</p>
+          <div class="mb-3">${equipmentHtml}</div>
+          <span class="badge ${statusClass}">${statusText}</span>
+        `;
+      }
+
+      function renderActions(room) {
+        actions.innerHTML = `
+          <span class="eyebrow">Действия</span>
+          <h2 class="h4 mb-3">Быстрый доступ</h2>
+          <div class="detail-list">
+            <div class="detail-item">
+              <div class="fw-semibold">Режим подтверждения</div>
+              <div class="text-secondary">${room.requires_moderation ? "Ручное согласование" : "Мгновенное подтверждение"}</div>
+            </div>
+            <div class="detail-item">
+              <div class="fw-semibold">Вместимость</div>
+              <div class="text-secondary">${room.capacity} участников</div>
+            </div>
+            <div class="detail-item">
+              <div class="fw-semibold">Доступность</div>
+              <div class="text-secondary">${room.is_active ? "Доступна" : "Недоступна"}</div>
+            </div>
+          </div>
+          <div class="d-grid gap-2 mt-4">
+            ${isAuthenticated ? `<a href="/bookings/create/${encodeURIComponent(room.slug)}/" class="btn btn-warning">Создать бронирование</a>` : '<a href="/accounts/login/" class="btn btn-warning">Войти для бронирования</a>'}
+            <a href="/rooms/" class="btn btn-outline-dark">Назад к каталогу</a>
+          </div>
+        `;
+      }
+
+      function renderBookings(room) {
+        if (!room.upcoming_bookings.length) {
+          bookingsBody.innerHTML = '<tr><td colspan="4" class="text-secondary">Активных бронирований пока нет.</td></tr>';
+          return;
+        }
+        bookingsBody.innerHTML = room.upcoming_bookings.map((booking) => `
+          <tr>
+            <td>${escapeHtml(booking.title)}</td>
+            <td>${formatDateTime(booking.start_at)}</td>
+            <td>${formatDateTime(booking.end_at)}</td>
+            <td><span class="badge status-${escapeHtml(booking.status)}">${escapeHtml(booking.status_display)}</span></td>
+          </tr>
+        `).join("");
+      }
+
+      request(`/api/rooms/${encodeURIComponent(slug)}/`)
+        .then((room) => {
+          clearAlert(alertBox);
+          renderSummary(room);
+          renderActions(room);
+          renderBookings(room);
+        })
+        .catch((error) => {
+          showAlert(alertBox, "danger", error.message);
+          summary.innerHTML = '<div class="text-secondary">Не удалось загрузить данные переговорной.</div>';
+          actions.innerHTML = '<div class="text-secondary">Действия временно недоступны.</div>';
+          bookingsBody.innerHTML = "";
+        });
+    })();
+  </script>
+{% endblock %}
